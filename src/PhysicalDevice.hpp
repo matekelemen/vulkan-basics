@@ -14,7 +14,7 @@
 #include <array>
 #include <optional>
 #include <tuple>
-#include <vulkan/vulkan_core.h>
+#include <limits>
 
 
 class PhysicalDevice
@@ -25,6 +25,8 @@ public:
     struct QueueFamily
     {
         std::optional<uint32_t> graphics;
+
+        std::optional<uint32_t> presentation;
     }; // struct QueueFamily
 
 public:
@@ -74,7 +76,7 @@ public:
         return id;
     }
 
-    QueueFamily getQueueFamily() const
+    QueueFamily getQueueFamily(std::optional<VkSurfaceKHR> surface) const
     {
         QueueFamily family;
 
@@ -84,15 +86,22 @@ public:
         vkGetPhysicalDeviceQueueFamilyProperties(_device, &numberOfFamilies, families.data());
 
         for (std::size_t i=0; i<families.size(); ++i) {
-            if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                if (family.graphics.has_value()) {
-                    /// @todo multiple graphics queues found
-                    family.graphics.emplace(i);
-                }
-                else {
-                    family.graphics.emplace(i);
-                }
+            const auto& r_family = families[i];
+            assert(i < std::numeric_limits<uint32_t>::max());
+
+            if (r_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                family.graphics.emplace(i);
             } // graphics
+
+            if (surface.has_value()) {
+                VkBool32 hasPresentationSupport = false;
+                vkGetPhysicalDeviceSurfaceSupportKHR(_device,
+                                                     i,
+                                                     surface.value(),
+                                                     &hasPresentationSupport);
+                if (hasPresentationSupport)
+                    family.presentation.emplace(i);
+            } // presentation
         } // for family in families
 
         return family;
@@ -112,18 +121,29 @@ public:
         }
     }
 
-    static std::optional<PhysicalDevice> getDefaultDevice(const VkInstance& r_vulkanInstance)
+    static std::optional<PhysicalDevice> getDefaultDevice(const VkInstance& r_vulkanInstance,
+                                                          const VkSurfaceKHR& r_surface)
     {
         std::vector<PhysicalDevice> devices;
         PhysicalDevice::getDevices(r_vulkanInstance, std::back_inserter(devices));
-        std::vector<std::tuple<PhysicalDevice, VkPhysicalDeviceProperties, VkPhysicalDeviceFeatures>> deviceParams;
+        std::vector<std::tuple<
+            PhysicalDevice,
+            VkPhysicalDeviceProperties,
+            VkPhysicalDeviceFeatures,
+            QueueFamily
+        >> deviceParams;
         deviceParams.reserve(devices.size());
         std::transform(devices.begin(),
                        devices.end(),
                        std::back_inserter(deviceParams),
-                       [](PhysicalDevice device) {
-                           return std::make_tuple(device, device.getProperties(), device.getFeatures());
-                       });
+                       [&r_surface](PhysicalDevice device) {
+                           return std::make_tuple(
+                               device,
+                               device.getProperties(),
+                               device.getFeatures(),
+                               device.getQueueFamily(r_surface)
+                           ); // make_tuple
+                       }); // std::transform
 
         std::erase_if(
             deviceParams,
@@ -131,11 +151,17 @@ public:
             {
                 const auto& r_properties = std::get<1>(r_tuple);
                 const auto& r_features = std::get<2>(r_tuple);
-                return (r_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-                        || r_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
-                       && r_features.geometryShader;
+                const auto& r_family = std::get<3>(r_tuple);
+
+                bool isSuitable = true;
+                isSuitable &= (r_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+                               || r_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
+                isSuitable &= r_features.geometryShader;
+                isSuitable &= r_family.presentation.has_value();
+
+                return !isSuitable;
             } // erasePredicate
-        );
+        ); // std::erase_if
 
         std::optional<PhysicalDevice> pick;
         if (!devices.empty()) {
@@ -145,14 +171,27 @@ public:
                       [](const auto& r_left, const auto& r_right) -> bool {
                           const auto& r_lProp = std::get<1>(r_left);
                           const auto& r_rProp = std::get<1>(r_right);
-                          if (r_lProp.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && r_rProp.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-                              return true;
-                          if (r_lProp.limits.maxImageDimension2D > r_rProp.limits.maxImageDimension2D)
-                              return true;
                           const auto& r_lFeats = std::get<2>(r_left);
                           const auto& r_rFeats = std::get<2>(r_right);
+                          const auto& r_lFamily = std::get<3>(r_left);
+                          const auto& r_rFamily = std::get<3>(r_right);
+
+                          // Prefer discrete GPUs
+                          if (r_lProp.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && r_rProp.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+                              return true;
+
+                          // Prefer GPUs with more memory
+                          if (r_lProp.limits.maxImageDimension2D > r_rProp.limits.maxImageDimension2D)
+                              return true;
+
+                          // Prefer GPUs that support graphics and presentation on the same queue
+                          if ((r_lFamily.graphics.value() == r_lFamily.presentation.value()) && (r_rFamily.graphics.value() != r_rFamily.presentation.value()))
+                            return true;
+
+                          // Prefer GPUs with 64 bit floating point support
                           if (r_lFeats.shaderFloat64 && !r_rFeats.shaderFloat64)
                             return true;
+
                           return false;
                       }); // comparisonFunction
             pick.emplace(devices.front());

@@ -2,6 +2,7 @@
 #include "Application.hpp"
 #include "VulkanInstance.hpp"
 #include "DebugMessenger.hpp"
+#include "WindowSurface.hpp"
 #include "PhysicalDevice.hpp"
 #include "LogicalDevice.hpp"
 
@@ -23,6 +24,7 @@ struct Application::Impl
     Impl()
         : _p_window(nullptr),
           _p_vulkanInstance(),
+          _p_windowSurface(),
           _p_physicalDevice(),
           _p_logicalDevice()
     {
@@ -35,6 +37,7 @@ struct Application::Impl
         #endif
         _p_logicalDevice.reset();
         _p_physicalDevice.reset();
+        _p_windowSurface.reset();
         _p_vulkanInstance.reset();
         glfwDestroyWindow(_p_window);
     }
@@ -42,6 +45,8 @@ struct Application::Impl
     GLFWwindow* _p_window;
 
     std::shared_ptr<VulkanInstance> _p_vulkanInstance;
+
+    std::shared_ptr<WindowSurface> _p_windowSurface;
 
     std::shared_ptr<PhysicalDevice> _p_physicalDevice;
 
@@ -64,8 +69,8 @@ struct Application::Impl
 Application::Application()
     : _p_impl(new Impl)
 {
-    this->initVulkan();
     this->initWindow();
+    this->initVulkan();
     this->initDebugMessenger();
     this->createSurface();
     this->createPhysicalDevice();
@@ -210,14 +215,17 @@ void Application::createVkInstance()
 
 void Application::createSurface()
 {
-
+    _p_impl->_p_windowSurface = std::make_shared<WindowSurface>(_p_impl->_p_vulkanInstance, _p_impl->_p_window);
 }
 
 
 void Application::createPhysicalDevice()
 {
     _p_impl->_p_physicalDevice = std::make_shared<PhysicalDevice>(VK_NULL_HANDLE);
-    *_p_impl->_p_physicalDevice = PhysicalDevice::getDefaultDevice(_p_impl->_p_vulkanInstance->get()).value();
+    *_p_impl->_p_physicalDevice = PhysicalDevice::getDefaultDevice(
+        _p_impl->_p_vulkanInstance->get(),
+        _p_impl->_p_windowSurface->get()
+    ).value();
 }
 
 
