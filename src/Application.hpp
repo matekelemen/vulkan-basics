@@ -1,21 +1,15 @@
 #pragma once
 
 // --- External Includes ---
-#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+// --- Internal Includes ---
+#include "utilities.hpp"
+
 // --- STL Includes ---
-#include <type_traits>
 #include <string>
-
-
-namespace concepts {
-template <class TIt, class TValue = void>
-concept Iterator
-= !std::is_same_v<typename std::iterator_traits<TIt>::iterator_category, void>
-  && (std::is_same_v<TValue,void> || std::is_same_v<TValue,typename std::iterator_traits<TIt>::value_type>);
-} // namespace concepts
+#include <memory>
 
 
 class Application
@@ -44,6 +38,12 @@ private:
 
     void createVkInstance();
 
+    void createSurface();
+
+    void createPhysicalDevice();
+
+    void createLogicalDevice();
+
     template <concepts::Iterator TOutputIt>
     static void getExtensions(TOutputIt it);
 
@@ -54,19 +54,6 @@ private:
                                                         const VkDebugUtilsMessengerCallbackDataEXT* p_data,
                                                         void* p_userData);
 private:
-    GLFWwindow* _p_window;
-
-    VkInstance _vulkanInstance;
-
-    #ifndef NDEBUG
-    VkDebugUtilsMessengerEXT _debugMessenger;
-
-    static constexpr bool _enableValidationLayers = true;
-    #else
-    static constexpr bool _enableValidationLayers = false;
-    #endif
-
-    const unsigned _windowWidth = 800;
-
-    const unsigned _windowHeight = 600;
+    struct Impl;
+    std::unique_ptr<Impl> _p_impl;
 }; // class Application

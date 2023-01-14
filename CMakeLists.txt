@@ -12,5 +12,3 @@ file(GLOB sources src/*.cpp)
 add_executable(${PROJECT_NAME} ${sources})
 target_include_directories(${PROJECT_NAME} PUBLIC src)
 target_link_libraries(${PROJECT_NAME} glfw Vulkan::Vulkan)
-
-message(STATUS ${CMAKE_BUILD_TYPE})
