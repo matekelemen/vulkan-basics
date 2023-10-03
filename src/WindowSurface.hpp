@@ -30,12 +30,17 @@ public:
         vkDestroySurfaceKHR(_p_vulkanInstance->get(), _surface, nullptr);
     }
 
-    ///@name
+    ///@name Member Access
     ///@{
 
-    VkSurfaceKHR get()
+    const VkSurfaceKHR& get() const noexcept
     {
         return _surface;
+    }
+
+    GLFWwindow* getWindow() const noexcept
+    {
+        return _p_window;
     }
 
     ///@}
@@ -43,7 +48,7 @@ public:
 private:
     VkSurfaceKHR _surface;
 
-    GLFWwindow* _p_window;
+    mutable GLFWwindow* _p_window; // <== GLFW has no concept of constness
 
     std::shared_ptr<VulkanInstance> _p_vulkanInstance;
 }; // class WindowSurface

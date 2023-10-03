@@ -44,6 +44,8 @@ private:
 
     void createLogicalDevice();
 
+    void createSwapChain();
+
     template <concepts::Iterator TOutputIt>
     static void getExtensions(TOutputIt it);
 

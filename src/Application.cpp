@@ -5,6 +5,7 @@
 #include "WindowSurface.hpp"
 #include "PhysicalDevice.hpp"
 #include "LogicalDevice.hpp"
+#include "SwapChain.hpp"
 
 // --- STL Includes ---
 #include <iostream>
@@ -26,7 +27,8 @@ struct Application::Impl
           _p_vulkanInstance(),
           _p_windowSurface(),
           _p_physicalDevice(),
-          _p_logicalDevice()
+          _p_logicalDevice(),
+          _p_swapChain()
     {
     }
 
@@ -35,6 +37,7 @@ struct Application::Impl
         #ifndef NDEBUG
         _debugMessenger.reset();
         #endif
+        _p_swapChain.reset();
         _p_logicalDevice.reset();
         _p_physicalDevice.reset();
         _p_windowSurface.reset();
@@ -50,7 +53,9 @@ struct Application::Impl
 
     std::shared_ptr<PhysicalDevice> _p_physicalDevice;
 
-    std::shared_ptr<LogicalDevice> _p_logicalDevice;
+    std::shared_ptr<GraphicsLogicalDevice> _p_logicalDevice;
+
+    std::shared_ptr<SwapChain> _p_swapChain;
 
     #ifndef NDEBUG
     std::optional<DebugMessenger> _debugMessenger;
@@ -75,7 +80,9 @@ Application::Application()
     this->createSurface();
     this->createPhysicalDevice();
     this->createLogicalDevice();
+    this->createSwapChain();
 }
+
 
 
 Application::~Application()
@@ -231,7 +238,14 @@ void Application::createPhysicalDevice()
 
 void Application::createLogicalDevice()
 {
-    _p_impl->_p_logicalDevice = std::make_shared<LogicalDevice>(_p_impl->_p_physicalDevice);
+    _p_impl->_p_logicalDevice = std::make_shared<GraphicsLogicalDevice>(_p_impl->_p_physicalDevice);
+}
+
+
+void Application::createSwapChain()
+{
+    _p_impl->_p_swapChain = std::make_shared<SwapChain>(_p_impl->_p_logicalDevice,
+                                                        _p_impl->_p_windowSurface);
 }
 
 

@@ -9,6 +9,7 @@
 
 // --- STL Includes ---
 #include <unordered_set>
+#include <span>
 
 
 class LogicalDevice
@@ -21,10 +22,90 @@ public:
     }
 
     LogicalDevice(const std::shared_ptr<PhysicalDevice>& rp_physicalDevice)
+        : LogicalDevice(rp_physicalDevice,
+                        [](){
+                            std::vector<PhysicalDevice::Feature> features;
+                            LogicalDevice::getRequiredFeatures(std::back_inserter(features));
+                            return features;
+                        }(),
+                        [](){
+                            std::vector<const char*> extensions;
+                            LogicalDevice::getRequiredExtensions(std::back_inserter(extensions));
+                            return extensions;
+                        }())
+    {
+    }
+
+    virtual ~LogicalDevice()
+    {
+        if (_device != VK_NULL_HANDLE) {
+            vkDestroyDevice(_device, nullptr);
+        }
+    }
+
+    ///@name Queries
+    ///@{
+
+    /// @tparam TIterator output iterator with @ref PhysicalDevice::Feature as value type.
+    /// @return the output iterator pointing to the new end of the modified container.
+    template <class TIterator>
+    static TIterator getRequiredFeatures(TIterator it_output)
+    {
+        return it_output;
+    }
+
+    /// @tparam TIterator output iterator with @a const @a char* as value type.
+    /// @return the output iterator pointing to the new end of the modified container.
+    template <class TIterator>
+    static TIterator getRequiredExtensions(TIterator it_output)
+    {
+        return it_output;
+    }
+
+    ///@}
+    ///@name Member Access
+    ///@{
+
+    const VkDevice& getDevice() const
+    {
+        return _device;
+    }
+
+    const PhysicalDevice& getPhysicalDevice() const
+    {
+        return *_p_physicalDevice;
+    }
+
+    ///@}
+    ///@name Queries
+    ///@{
+
+    VkQueue getQueue() const
+    {
+        auto queueFamily = _p_physicalDevice->getQueueFamily({}); // @todo
+        VkQueue queue;
+        vkGetDeviceQueue(_device, queueFamily.graphics.value(), 0, &queue);
+        return queue;
+    }
+
+    ///@}
+protected:
+    LogicalDevice(const std::shared_ptr<PhysicalDevice>& rp_physicalDevice,
+                  const std::vector<PhysicalDevice::Feature>& r_requiredFeatures,
+                  const std::vector<const char*>& r_requiredExtensions)
+        : LogicalDevice(rp_physicalDevice,
+                        {r_requiredFeatures.data(), r_requiredFeatures.size()},
+                        {r_requiredExtensions.data(), r_requiredExtensions.size()})
+    {
+    }
+
+    LogicalDevice(const std::shared_ptr<PhysicalDevice>& rp_physicalDevice,
+                  std::span<const PhysicalDevice::Feature> requiredFeatures,
+                  std::span<const char* const> requiredExtensions)
         : _device(VK_NULL_HANDLE),
           _p_physicalDevice(rp_physicalDevice)
     {
-        const auto queueFamily = rp_physicalDevice->getQueueFamily({}); // @todo
+        const auto queueFamily = rp_physicalDevice->getQueueFamily({});
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
         // Collect unique queue families
@@ -44,7 +125,7 @@ public:
             r_createInfo.pQueuePriorities = &queuePriority;
         }
 
-        auto features = this->getRequiredFeatures();
+        const auto features = PhysicalDevice::makeFeatures({requiredFeatures.data(), requiredFeatures.size()});
 
         VkDeviceCreateInfo createInfo {};
         if (!queueCreateInfos.empty()) {
@@ -52,6 +133,8 @@ public:
             createInfo.pQueueCreateInfos = queueCreateInfos.data();
             createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
             createInfo.pEnabledFeatures = &features;
+            createInfo.enabledExtensionCount = requiredExtensions.size();
+            createInfo.ppEnabledExtensionNames = requiredExtensions.data();
             // For legacy vulkan implementations, it would be necessary
             // to define the validation layers for the device separately,
             // but I'll just ignore that here.
@@ -71,45 +154,6 @@ public:
         }
     }
 
-    ~LogicalDevice()
-    {
-        if (_device != VK_NULL_HANDLE) {
-            vkDestroyDevice(_device, nullptr);
-        }
-    }
-
-    ///@name Queries
-    ///@{
-
-    virtual VkPhysicalDeviceFeatures getRequiredFeatures() const
-    {
-        VkPhysicalDeviceFeatures deviceFeatures {};
-        return deviceFeatures;
-    }
-
-    ///@}
-    ///@name Member Access
-    ///@{
-
-    const VkDevice& getDevice() const
-    {
-        return _device;
-    }
-
-    ///@}
-    ///@name Queries
-    ///@{
-
-    VkQueue getQueue() const
-    {
-        auto queueFamily = _p_physicalDevice->getQueueFamily({}); // @todo
-        VkQueue queue;
-        vkGetDeviceQueue(_device, queueFamily.graphics.value(), 0, &queue);
-        return queue;
-    }
-
-    ///@}
-
 private:
     VkDevice _device;
 
@@ -117,3 +161,68 @@ private:
 
     std::shared_ptr<PhysicalDevice> _p_physicalDevice;
 }; // class LogicalDevice
+
+
+
+/// @brief Logical device meant specifically for graphics.
+/// @details Requires @ref SwapChain support.
+class GraphicsLogicalDevice : public LogicalDevice
+{
+public:
+    GraphicsLogicalDevice()
+    {
+    }
+
+    GraphicsLogicalDevice(const std::shared_ptr<PhysicalDevice>& rp_physicalDevice)
+        : LogicalDevice(rp_physicalDevice,
+                        [](){
+                            std::vector<PhysicalDevice::Feature> features;
+                            GraphicsLogicalDevice::getRequiredFeatures(std::back_inserter(features));
+                            return features;
+                        }(),
+                        [](){
+                            std::vector<const char*> extensions;
+                            GraphicsLogicalDevice::getRequiredExtensions(std::back_inserter(extensions));
+                            return extensions;
+                        }())
+    {
+    }
+
+    ///@name Queries
+    ///@{
+
+    /// @tparam TIterator output iterator with @ref PhysicalDevice::Feature as value type.
+    /// @return the output iterator pointing to the new end of the modified container.
+    template <class TIterator>
+    static TIterator getRequiredFeatures(TIterator it_output)
+    {
+        return LogicalDevice::getRequiredFeatures(it_output);
+    }
+
+    /// @tparam TIterator output iterator with @a const @a char* as value type.
+    /// @return the output iterator pointing to the new end of the modified container.
+    template <class TIterator>
+    static TIterator getRequiredExtensions(TIterator it_output)
+    {
+        it_output = LogicalDevice::getRequiredExtensions(it_output);
+        *it_output++ = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+        return it_output;
+    }
+
+    ///@}
+
+protected:
+    GraphicsLogicalDevice(const std::shared_ptr<PhysicalDevice>& rp_physicalDevice,
+                          const std::vector<PhysicalDevice::Feature>& r_requiredFeatures,
+                          const std::vector<const char*>& r_requiredExtensions)
+        : LogicalDevice(rp_physicalDevice, r_requiredFeatures, r_requiredExtensions)
+    {
+    }
+
+    GraphicsLogicalDevice(const std::shared_ptr<PhysicalDevice>& rp_physicalDevice,
+                          std::span<const PhysicalDevice::Feature> requiredFeatures,
+                          std::span<const char* const> requiredExtensions)
+        : LogicalDevice(rp_physicalDevice, requiredFeatures, requiredExtensions)
+    {
+    }
+}; // class GraphicsLogicalDevice

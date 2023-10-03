@@ -15,6 +15,8 @@
 #include <optional>
 #include <tuple>
 #include <limits>
+#include <span>
+#include <iosfwd>
 
 
 class PhysicalDevice
@@ -27,7 +29,17 @@ public:
         std::optional<uint32_t> graphics;
 
         std::optional<uint32_t> presentation;
+
+        bool all() const noexcept
+        {
+            return graphics.has_value() && presentation.has_value();
+        }
     }; // struct QueueFamily
+
+    /// @brief Represents @ref PhysicalDevice features.
+    enum class Feature
+    {
+    }; // enum class Feature
 
 public:
     PhysicalDevice(VkPhysicalDevice device)
@@ -109,23 +121,38 @@ public:
 
     ///@}
 
-    template <concepts::Iterator TOutputIt>
-    static void getDevices(const VkInstance& r_vulkanInstance, TOutputIt it_out)
+    /// @brief Get the number of physical devices detected on the machine.
+    static std::size_t getDeviceCount(const VkInstance& r_vulkanInstance)
     {
         uint32_t numberOfDevices = 0;
         vkEnumeratePhysicalDevices(r_vulkanInstance, &numberOfDevices, nullptr);
+        return static_cast<std::size_t>(numberOfDevices);
+    }
+
+    /// @brief Get a list of all physical devices detected on the machine.
+    static std::vector<PhysicalDevice> getDevices(const VkInstance& r_vulkanInstance)
+    {
+        std::vector<PhysicalDevice> output;
+
+        uint32_t numberOfDevices = PhysicalDevice::getDeviceCount(r_vulkanInstance);
+
         std::vector<VkPhysicalDevice> devices(numberOfDevices);
         vkEnumeratePhysicalDevices(r_vulkanInstance, &numberOfDevices, devices.data());
-        for (const auto& r_device : devices) {
-            *it_out++ = PhysicalDevice(r_device);
-        }
+
+        output.reserve(numberOfDevices);
+        std::transform(devices.begin(),
+                       devices.end(),
+                       std::back_inserter(output),
+                       [](VkPhysicalDevice& r_device){
+                            return std::move(r_device);
+                       });
+        return output;
     }
 
     static std::optional<PhysicalDevice> getDefaultDevice(const VkInstance& r_vulkanInstance,
                                                           const VkSurfaceKHR& r_surface)
     {
-        std::vector<PhysicalDevice> devices;
-        PhysicalDevice::getDevices(r_vulkanInstance, std::back_inserter(devices));
+        auto devices = PhysicalDevice::getDevices(r_vulkanInstance);
         std::vector<std::tuple<
             PhysicalDevice,
             VkPhysicalDeviceProperties,
@@ -147,8 +174,7 @@ public:
 
         std::erase_if(
             deviceParams,
-            [](const auto& r_tuple) -> bool
-            {
+            [](const auto& r_tuple) -> bool {
                 const auto& r_properties = std::get<1>(r_tuple);
                 const auto& r_features = std::get<2>(r_tuple);
                 const auto& r_family = std::get<3>(r_tuple);
@@ -200,6 +226,18 @@ public:
         return pick;
     }
 
+    static VkPhysicalDeviceFeatures makeFeatures(std::span<const Feature> features)
+    {
+        if (!features.empty()) {
+            throw std::runtime_error("Physical device features are not implemented");
+        }
+        return VkPhysicalDeviceFeatures {};
+    }
+
 private:
     VkPhysicalDevice _device;
 }; // class PhysicalDevice
+
+
+
+std::ostream& operator<<(std::ostream& r_stream, const PhysicalDevice& r_device);
