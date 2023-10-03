@@ -46,6 +46,8 @@ private:
 
     void createSwapChain();
 
+    void createImageViews();
+
     template <concepts::Iterator TOutputIt>
     static void getExtensions(TOutputIt it);
 

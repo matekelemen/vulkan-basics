@@ -52,6 +52,64 @@ public:
         friend class SwapChain;
     }; // class Properties
 
+    class ImageViews
+    {
+    public:
+        class View
+        {
+        public:
+            View() = delete;
+
+            View(View&&) noexcept = default;
+
+            View(const View&) = delete;
+
+            View(SwapChain& r_swapChain, std::size_t i_image);
+
+            VkImageView get();
+
+            virtual ~View();
+
+        private:
+            VkImageView _view;
+
+            VkImage _image;
+
+            VkDevice _device;
+        }; // class View
+
+    public:
+        ImageViews(const std::shared_ptr<SwapChain> rp_swapChain)
+            : ImageViews(rp_swapChain,
+                         [](SwapChain& r_chain, std::size_t i_image) -> std::unique_ptr<View> {
+                            return std::make_unique<View>(r_chain, i_image);
+                         })
+        {}
+
+        /// @tparam TViewFactory Factory function producing a unique pointer to a @ref View.
+        /// @tparam TFactoryArgs Additional arguments passed to @a TViewFactory after @ref SwapChain and the image index.
+        template <class TViewFactory, class ...TFactoryArgs>
+        ImageViews(const std::shared_ptr<SwapChain> rp_swapChain,
+                   const TViewFactory& r_factory,
+                   const TFactoryArgs& ... r_factoryArgs)
+            : _views(),
+              _p_swapChain(rp_swapChain)
+        {
+            const std::size_t imageCount = rp_swapChain->getImages().size();
+            _views.reserve(imageCount);
+            for (std::size_t i_image=0; i_image<imageCount; ++i_image) {
+                _views.emplace_back(r_factory(*rp_swapChain,
+                                              i_image,
+                                              r_factoryArgs...));
+            }
+        }
+
+    private:
+        std::vector<std::unique_ptr<View>> _views;
+
+        std::shared_ptr<SwapChain> _p_swapChain;
+    }; // class ImageViews
+
 public:
     SwapChain(const std::shared_ptr<GraphicsLogicalDevice>& rp_device,
               const std::shared_ptr<WindowSurface>& rp_surface);
@@ -74,7 +132,18 @@ public:
     Properties getAvailableProperties() const;
 
     /// @brief Get the @ref Properties the @ref SwapChain was constructed with.
-    Properties getProperties() const;
+    const Properties& getProperties() const noexcept;
+
+    /// @brief Access images in the swap chain.
+    std::vector<VkImage>& getImages() noexcept;
+
+    const GraphicsLogicalDevice& getLogicalDevice() const noexcept;
+
+    GraphicsLogicalDevice& getLogicalDevice() noexcept;
+
+    /// @}
+    /// @name Checks
+    /// @{
 
     /// @brief Check whether the provided properties are suitable for swap chains.
     static bool checkRequirements(const Properties& r_properties) noexcept;

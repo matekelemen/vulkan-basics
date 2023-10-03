@@ -28,7 +28,8 @@ struct Application::Impl
           _p_windowSurface(),
           _p_physicalDevice(),
           _p_logicalDevice(),
-          _p_swapChain()
+          _p_swapChain(),
+          _p_imageViews()
     {
     }
 
@@ -37,6 +38,7 @@ struct Application::Impl
         #ifndef NDEBUG
         _debugMessenger.reset();
         #endif
+        _p_imageViews.reset();
         _p_swapChain.reset();
         _p_logicalDevice.reset();
         _p_physicalDevice.reset();
@@ -56,6 +58,8 @@ struct Application::Impl
     std::shared_ptr<GraphicsLogicalDevice> _p_logicalDevice;
 
     std::shared_ptr<SwapChain> _p_swapChain;
+
+    std::shared_ptr<SwapChain::ImageViews> _p_imageViews;
 
     #ifndef NDEBUG
     std::optional<DebugMessenger> _debugMessenger;
@@ -81,6 +85,7 @@ Application::Application()
     this->createPhysicalDevice();
     this->createLogicalDevice();
     this->createSwapChain();
+    this->createImageViews();
 }
 
 
@@ -246,6 +251,12 @@ void Application::createSwapChain()
 {
     _p_impl->_p_swapChain = std::make_shared<SwapChain>(_p_impl->_p_logicalDevice,
                                                         _p_impl->_p_windowSurface);
+}
+
+
+void Application::createImageViews()
+{
+    _p_impl->_p_imageViews = std::make_shared<SwapChain::ImageViews>(_p_impl->_p_swapChain);
 }
 
 
