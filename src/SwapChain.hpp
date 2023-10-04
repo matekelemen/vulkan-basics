@@ -79,12 +79,7 @@ public:
         }; // class View
 
     public:
-        ImageViews(const std::shared_ptr<SwapChain> rp_swapChain)
-            : ImageViews(rp_swapChain,
-                         [](SwapChain& r_chain, std::size_t i_image) -> std::unique_ptr<View> {
-                            return std::make_unique<View>(r_chain, i_image);
-                         })
-        {}
+        ImageViews(const std::shared_ptr<SwapChain> rp_swapChain);
 
         /// @tparam TViewFactory Factory function producing a unique pointer to a @ref View.
         /// @tparam TFactoryArgs Additional arguments passed to @a TViewFactory after @ref SwapChain and the image index.

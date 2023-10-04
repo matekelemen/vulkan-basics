@@ -147,6 +147,14 @@ VkImageView SwapChain::ImageViews::View::get()
 }
 
 
+SwapChain::ImageViews::ImageViews(const std::shared_ptr<SwapChain> rp_swapChain)
+    : ImageViews(rp_swapChain,
+                 [](SwapChain& r_chain, std::size_t i_image) -> std::unique_ptr<View> {
+                    return std::make_unique<View>(r_chain, i_image);
+                 })
+{}
+
+
 SwapChain::ImageViews::View::~View()
 {
     vkDestroyImageView(_device, _view, nullptr);

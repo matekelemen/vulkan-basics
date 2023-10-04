@@ -1,7 +1,12 @@
 *
 !.gitignore
 !CMakeLists.txt
-!build
+!build.sh
+
 !src
 !src/*.cpp
 !src/*.hpp
+
+!src/shader
+!src/shader/*.vert
+!src/shader/*.frag
