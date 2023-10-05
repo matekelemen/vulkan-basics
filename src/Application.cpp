@@ -140,8 +140,13 @@ void Application::getRequiredExtensions(OutputIt it)
 {
     uint32_t numberOfGLFWExtensions = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&numberOfGLFWExtensions);
-    for (uint32_t i=0; i<numberOfGLFWExtensions; ++i)
+    for (uint32_t i=0; i<numberOfGLFWExtensions; ++i) {
         *it++ = *glfwExtensions++;
+    }
+
+    #if defined(__APPLE__) && __APPLE__
+    *it++ = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+    #endif
 
     if (_p_impl->_enableValidationLayers) {
         *it++ = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;

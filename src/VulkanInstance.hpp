@@ -41,6 +41,7 @@ public:
         createInfo.pApplicationInfo = &appInfo;
         createInfo.enabledExtensionCount = cStrings.size();
         createInfo.ppEnabledExtensionNames = cStrings.data();
+        createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
         // Check validation layer support
         std::vector<std::string> validationLayers = {

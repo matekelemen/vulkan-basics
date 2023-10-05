@@ -2,6 +2,7 @@
 !.gitignore
 !CMakeLists.txt
 !build.sh
+!dependencies_macos.txt
 
 !src
 !src/*.cpp

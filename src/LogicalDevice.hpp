@@ -3,6 +3,10 @@
 // --- External Includes ---
 #include "vulkan/vulkan.hpp"
 
+#if defined(__APPLE__) && __APPLE__
+#include "vulkan/vulkan_beta.h"
+#endif
+
 // --- Internal Includes ---
 #include "utilities.hpp"
 #include "PhysicalDevice.hpp"
@@ -135,6 +139,11 @@ protected:
             createInfo.pEnabledFeatures = &features;
             createInfo.enabledExtensionCount = requiredExtensions.size();
             createInfo.ppEnabledExtensionNames = requiredExtensions.data();
+
+            #if defined(__APPLE__) && __APPLE__
+            //createInfo.flags = VK_KHR_portability_subset; // <== @todo apparently, I'll need VK_KHR_portability_subset but I've no idea where
+            #endif
+
             // For legacy vulkan implementations, it would be necessary
             // to define the validation layers for the device separately,
             // but I'll just ignore that here.
